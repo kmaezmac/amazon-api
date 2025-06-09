@@ -129,22 +129,12 @@ module.exports = async (req, res) => {
 
   try {
     const data = await AmazonPaapi.SearchItems(commonParameters, searchItemsRequest);
-    // 割引率が0より大きい商品のみ抽出
-    const responses = onSuccess(data).filter(item => item.percentage && item.percentage > 0);
-
-    // responsesが空の場合は404
-    if (responses.length === 0) {
-      res.status(404).json({ error: 'No discounted item found' });
-      return;
-    }
-
-    // ランダムに1件選択
+    const responses = onSuccess(data);
     const randomResponse = responses[Math.floor(Math.random() * responses.length)];
 
-    // 必須情報がなければ404
     if (
       !randomResponse ||
-      !randomResponse.percentage ||
+      randomResponse.percentage === undefined ||
       !randomResponse.url ||
       !randomResponse.title
     ) {
@@ -152,10 +142,12 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const tweetText = `【${randomResponse.percentage}%オフ】 ${randomResponse.url} ${randomResponse.title.substring(0, 90)} #タイムセール #Amazon #PR`;
+    // percentageが0のときは割引率表示を消す
+    const discountText = randomResponse.percentage > 0 ? `【${randomResponse.percentage}%オフ】 ` : "";
+    const tweetText = `${discountText}${randomResponse.url} ${randomResponse.title.substring(0, 90)} #タイムセール #Amazon #PR`;
     res.json({ tweetText });
-} catch (err) {
+  } catch (err) {
     onError(err);
     res.status(500).json({ error: err.message });
-}
+  }
 };
